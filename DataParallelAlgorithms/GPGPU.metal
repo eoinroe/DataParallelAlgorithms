@@ -115,25 +115,18 @@ kernel void kernel_decomposition(device float* numbers,
 // https://developer.apple.com/videos/play/tech-talks/10858
 kernel void reduce_sum(device float* input_array,
                        device atomic_float* total_sum,
-                       //device float const* input_array,
+                       threadgroup float* simdSumArray,
                        // The scalar index of a SIMD-group within a threadgroup.
                        uint simd_group_id  [[simdgroup_index_in_threadgroup]],
-                       // The number of SIMD-groups in a threadgroup.
-                       uint num_groups     [[simdgroups_per_threadgroup]],
                        // The scalar index of a thread within a SIMD-group.
                        uint simd_lane_id   [[thread_index_in_simdgroup]],
-                       //
-                       uint simd_size      [[threads_per_simdgroup]],
                        uint lid            [[thread_position_in_threadgroup]],
-                       uint gid [[thread_position_in_grid]])
+                       uint gid    [[thread_position_in_grid]])
 {
-    // Move this to CPU.
-    threadgroup float SSA[32];
-    
     float a = input_array[gid];
     
     float simdgroup_sum = simd_sum(a);
-    SSA[simd_group_id] = simdgroup_sum;
+    simdSumArray[simd_group_id] = simdgroup_sum;
     
     threadgroup float sum = 0;
     
@@ -143,57 +136,48 @@ kernel void reduce_sum(device float* input_array,
     // in the threadgroup will perform the exact same calculation.
     if (simd_group_id == 0) {
         // simd_lane_id will be a number between 0 - 31
-        float b = SSA[simd_lane_id];
+        float b = simdSumArray[simd_lane_id];
         sum = simd_sum(b);
     }
     
     if (lid == 0)
         atomic_fetch_add_explicit(total_sum, sum, memory_order_relaxed);
-    
-    // TEST
-    
-    // threadgroup_barrier(mem_flags::mem_threadgroup);
-    //
-    // if (simd_group_id == 0) {
-    //     *total_sum = simd_sum(simdgroup_sum);
-    // }
-    
-    /*
-
-    // -*- Sum -*-
-    threadgroup float sum = 0;
-
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-
-    if (lid == 0) {
-        sum = SSA[0];
-        
-        // Index memory use signed int types over unsigned.
-        for (int i = 1; i < 32; ++i) {
-            sum += SSA[i];
-        }
-    }
-    
-    *total_sum = sum;
-     
-     */
-    
-    // This works!
-    // threadgroup_barrier(mem_flags::mem_threadgroup);
-    //
-    // if (simd_group_id == 0) {
-    //     float b = SSA[simd_lane_id];
-    //     *total_sum = simd_sum(b);
-    // }
-    
-    // if (simd_lane_id == 0) {
-    //     *total_sum = simd_sum(SSA[simd_group_id]);
-    // }
-    
-    // if (simd_group_id == 0) {
-    //     // *total_sum = simd_size;
-    //
-    //     *total_sum = simd_sum(SSA[simd_group_id]);
-    //     // input_array[0] = simd_sum(SSA[simd_group_id]);
-    // }
 }
+
+
+// kernel void reduce_sum(device float* input_array,
+//                        device atomic_float* total_sum,
+//                        threadgroup float* simdSumArray,
+//                        // The scalar index of a SIMD-group within a threadgroup.
+//                        uint simd_group_id  [[simdgroup_index_in_threadgroup]],
+//                        // The number of SIMD-groups in a threadgroup.
+//                        uint num_groups     [[simdgroups_per_threadgroup]],
+//                        // The scalar index of a thread within a SIMD-group.
+//                        uint simd_lane_id   [[thread_index_in_simdgroup]],
+//                        //
+//                        uint simd_size      [[threads_per_simdgroup]],
+//                        uint lid            [[thread_position_in_threadgroup]],
+//                        uint read_offset    [[thread_position_in_grid]])
+// {
+//     threadgroup float SSA[32];
+//
+//     float a = input_array[read_offset];
+//
+//     float simdgroup_sum = simd_sum(a);
+//     SSA[simd_group_id] = simdgroup_sum;
+//
+//     threadgroup float sum = 0;
+//
+//     threadgroup_barrier(mem_flags::mem_threadgroup);
+//
+//     // Also, works without this if statement since every simdgroup
+//     // in the threadgroup will perform the exact same calculation.
+//     if (simd_group_id == 0) {
+//         // simd_lane_id will be a number between 0 - 31
+//         float b = SSA[simd_lane_id];
+//         sum = simd_sum(b);
+//     }
+//
+//     if (lid == 0)
+//         atomic_fetch_add_explicit(total_sum, sum, memory_order_relaxed);
+// }

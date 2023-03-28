@@ -23,7 +23,7 @@ class ParallelReduction: GPGPU {
     var bufferA: MTLBuffer!
     // var bufferB: MTLBuffer!
     
-    var N: Int = 1024
+    var N: Int = 2048
     
     // In order to simplify the implementation we will only
     // consider arrays with sizes that equal to powers of 2.
@@ -99,10 +99,10 @@ class ParallelReduction: GPGPU {
     
     func generateRandomFloatData() {
         for _ in 0..<N {
-            inputArray.append(Float.random(in: 0...1))
+            // inputArray.append(Float.random(in: 0...1))
             
             // For testing...
-            // inputArray.append(Float(i))
+            inputArray.append(Float(Int.random(in: 0...5)))
         }
     }
     
@@ -263,15 +263,18 @@ class ParallelReduction: GPGPU {
         
         computeEncoder.setBuffer(bufferA,  offset: 0, index: 0)
         computeEncoder.setBuffer(totalSum, offset: 0, index: 1)
-    
-        // let gridSize = MTLSizeMake(32, 32, 1)
+        
+        let simdSize = simdgroupSumPipelineState.threadExecutionWidth
+        print("Simd size: ", simdSize)
+        
+        computeEncoder.setThreadgroupMemoryLength(MemoryLayout<Float>.stride * simdSize, index: 0)
         
         // The app asks the pipeline state object for the largest possible threadgroup...
-        let threadGroupSize = simdgroupSumPipelineState.maxTotalThreadsPerThreadgroup
-        print("Threadgroup size: ", threadGroupSize)
+        let maxTotalThreadsPerThreadgroup = simdgroupSumPipelineState.maxTotalThreadsPerThreadgroup
+        print("Max total threads per threadgroup: ", maxTotalThreadsPerThreadgroup)
         
-        let gridSize = MTLSizeMake(1024, 1, 1)
-        let threadgroupSize = MTLSizeMake(1024, 1, 1)
+        let gridSize = MTLSizeMake(N, 1, 1)
+        let threadgroupSize = MTLSizeMake(maxTotalThreadsPerThreadgroup, 1, 1)
         
         computeEncoder.dispatchThreads(gridSize,
                                        threadsPerThreadgroup: threadgroupSize)
