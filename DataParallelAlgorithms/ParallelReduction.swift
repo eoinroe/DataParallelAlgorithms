@@ -23,7 +23,8 @@ class ParallelReduction: GPGPU {
     var bufferA: MTLBuffer!
     // var bufferB: MTLBuffer!
     
-    var N: Int = 2048
+    // When numbers get large, N must be a power of two to work 🤔
+    var N: Int = 2048 * 1024
     
     // In order to simplify the implementation we will only
     // consider arrays with sizes that equal to powers of 2.
@@ -99,10 +100,10 @@ class ParallelReduction: GPGPU {
     
     func generateRandomFloatData() {
         for _ in 0..<N {
-            // inputArray.append(Float.random(in: 0...1))
+            inputArray.append(Float.random(in: 0...1))
             
             // For testing...
-            inputArray.append(Float(Int.random(in: 0...5)))
+            // inputArray.append(Float(Int.random(in: 0...5)))
         }
     }
     
