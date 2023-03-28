@@ -113,9 +113,9 @@ kernel void kernel_decomposition(device float* numbers,
 // -*- Perform the reduction -*-
 
 // https://developer.apple.com/videos/play/tech-talks/10858
-kernel void reduce_sum(device float* input_array,
-                       device atomic_float* total_sum,
-                       threadgroup float* simdSumArray,
+kernel void reduce_sum(device int* input_array,
+                       device atomic_int* total_sum,
+                       threadgroup int* simdSumArray,
                        // The scalar index of a SIMD-group within a threadgroup.
                        uint simd_group_id  [[simdgroup_index_in_threadgroup]],
                        // The scalar index of a thread within a SIMD-group.
@@ -123,12 +123,12 @@ kernel void reduce_sum(device float* input_array,
                        uint lid            [[thread_position_in_threadgroup]],
                        uint gid    [[thread_position_in_grid]])
 {
-    float a = input_array[gid];
+    int a = input_array[gid];
     
-    float simdgroup_sum = simd_sum(a);
+    int simdgroup_sum = simd_sum(a);
     simdSumArray[simd_group_id] = simdgroup_sum;
     
-    threadgroup float sum = 0;
+    threadgroup int sum = 0;
     
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
@@ -136,7 +136,7 @@ kernel void reduce_sum(device float* input_array,
     // in the threadgroup will perform the exact same calculation.
     if (simd_group_id == 0) {
         // simd_lane_id will be a number between 0 - 31
-        float b = simdSumArray[simd_lane_id];
+        int b = simdSumArray[simd_lane_id];
         sum = simd_sum(b);
     }
     

@@ -23,13 +23,14 @@ class ParallelReduction: GPGPU {
     var bufferA: MTLBuffer!
     // var bufferB: MTLBuffer!
     
-    var N: Int = 2048
+    // Seems that the simd_sum() method only works with powers of two.
+    var N: Int = 2048 * 1024
     
     // In order to simplify the implementation we will only
     // consider arrays with sizes that equal to powers of 2.
     // var inputArray = Array(repeating: Float(1), count: 16)
     
-    var inputArray: [Float] = []
+    var inputArray: [Int32] = []
     
     // As long as we do not need to keep the original GPU array,
     // we can perform the reduction in-place directly on the input
@@ -90,19 +91,19 @@ class ParallelReduction: GPGPU {
     }
     
     func prepareData() {
-        generateRandomFloatData()
-        bufferA = device.makeBuffer(bytes: inputArray, length: MemoryLayout<Float>.size * inputArray.count)
-        print("Buffer size: ", MemoryLayout<Float>.size * inputArray.count)
+        generateRandomIntData()
+        bufferA = device.makeBuffer(bytes: inputArray, length: MemoryLayout<Int32>.size * inputArray.count)
+        print("Buffer size: ", MemoryLayout<Int32>.size * inputArray.count)
         
-        totalSum = device.makeBuffer(length: MemoryLayout<Float>.stride)
+        totalSum = device.makeBuffer(length: MemoryLayout<Int32>.stride)
     }
     
-    func generateRandomFloatData() {
+    func generateRandomIntData() {
         for _ in 0..<N {
             // inputArray.append(Float.random(in: 0...1))
             
             // For testing...
-            inputArray.append(Float(Int.random(in: 0...5)))
+            inputArray.append(Int32.random(in: 0...5))
         }
     }
     
@@ -267,7 +268,7 @@ class ParallelReduction: GPGPU {
         let simdSize = simdgroupSumPipelineState.threadExecutionWidth
         print("Simd size: ", simdSize)
         
-        computeEncoder.setThreadgroupMemoryLength(MemoryLayout<Float>.stride * simdSize, index: 0)
+        computeEncoder.setThreadgroupMemoryLength(MemoryLayout<Int32>.stride * simdSize, index: 0)
         
         // The app asks the pipeline state object for the largest possible threadgroup...
         let maxTotalThreadsPerThreadgroup = simdgroupSumPipelineState.maxTotalThreadsPerThreadgroup
@@ -278,50 +279,43 @@ class ParallelReduction: GPGPU {
         
         computeEncoder.dispatchThreads(gridSize,
                                        threadsPerThreadgroup: threadgroupSize)
-        
     }
     
     func verifyResultsKernelDecomposition() {
-        let a = bufferA.contents().assumingMemoryBound(to: Float.self)
-        
-        var result: Float = 0
-        
-        for i in 0..<8 {
-            result += a[i]
-        }
-        
-        result = round(result * 100) / 100
-        
-        var total = inputArray.reduce(0, +)
-        total = round(total * 100) / 100
-        
-        if result != total {
-            print("Compute Error.")
-        } else {
-            print("Compute results as expected.")
-        }
-        
-        print(result)
-        print(total)
+        // let a = bufferA.contents().assumingMemoryBound(to: Float.self)
+        //
+        // var result: Float = 0
+        //
+        // for i in 0..<8 {
+        //     result += a[i]
+        // }
+        //
+        // result = round(result * 100) / 100
+        //
+        // var total = inputArray.reduce(0, +)
+        // total = round(total * 100) / 100
+        //
+        // if result != total {
+        //     print("Compute Error.")
+        // } else {
+        //     print("Compute results as expected.")
+        // }
+        //
+        // print(result)
+        // print(total)
     }
     
     func verifyResults() {
-        // let a = bufferA.contents().assumingMemoryBound(to: Float.self)
-        let a = totalSum.contents().assumingMemoryBound(to: Float.self)
-        let result = round(a[0] * 100) / 100
+        let result = totalSum.contents().assumingMemoryBound(to: Int.self)
+        let total = inputArray.reduce(0, +)
         
-        var total = inputArray.reduce(0, +)
-        total = round(total * 100) / 100
-        
-        if result != total {
+        if result.pointee != total {
             print("Compute Error.")
         } else {
             print("Compute results as expected.")
         }
         
-        print(result)
+        print(result.pointee)
         print(total)
     }
-    
-    
 }
